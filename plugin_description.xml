@@ -1,0 +1,10 @@
+<library path="polygonal_map_rviz_plugin">
+  <class name="polygonal_map_rviz_plugin/PolygonalMap"
+         type="polygonal_map_rviz_plugin::PolygonalMapDisplay"
+         base_class_type="rviz_common::Display">
+    <description>
+      Displays polygonal map.
+    </description>
+    <message_type>polygonal_map_msgs/msg/PolygonalMap</message_type>
+  </class>
+</library>
