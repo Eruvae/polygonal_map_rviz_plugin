@@ -19,6 +19,8 @@ set(CMAKE_AUTOMOC ON)
 add_library(${PROJECT_NAME} SHARED
   include/polygonal_map_rviz_plugin/polygonal_map_display.hpp
   src/polygonal_map_display.cpp
+  include/polygonal_map_rviz_plugin/line_map_display.hpp
+  src/line_map_display.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES})

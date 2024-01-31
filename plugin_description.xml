@@ -7,4 +7,12 @@
     </description>
     <message_type>polygonal_map_msgs/msg/PolygonalMap</message_type>
   </class>
+  <class name="polygonal_map_rviz_plugin/LineMap"
+         type="polygonal_map_rviz_plugin::LineMapDisplay"
+         base_class_type="rviz_common::Display">
+    <description>
+      Displays line map.
+    </description>
+    <message_type>polygonal_map_msgs/msg/LineMap</message_type>
+  </class>
 </library>
