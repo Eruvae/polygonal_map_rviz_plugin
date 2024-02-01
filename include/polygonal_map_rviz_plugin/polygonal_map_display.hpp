@@ -31,6 +31,7 @@ protected:
   rviz_common::properties::BoolProperty *draw_free_space_property_;
   rviz_common::properties::ColorProperty *free_space_color_property_;
   rviz_common::properties::FloatProperty *free_space_alpha_property_;
+  rviz_common::properties::FloatProperty *free_space_dilation_;
   rviz_common::properties::FloatProperty *obstacle_height_property_;
   rviz_common::properties::ColorProperty *obstacle_color_property_;
   rviz_common::properties::FloatProperty *obstacle_alpha_property_;

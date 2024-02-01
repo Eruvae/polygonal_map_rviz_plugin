@@ -49,14 +49,16 @@ PolygonalMapDisplay::PolygonalMapDisplay() : rviz_common::MessageFilterDisplay<p
         obstacle_material_->setReceiveShadows(false);
         obstacle_material_->getTechnique(0)->setLightingEnabled(false);
         obstacle_material_->setSceneBlending(Ogre::SBT_TRANSPARENT_ALPHA);
-        obstacle_material_->setDepthWriteEnabled(true);
+        obstacle_material_->setDepthWriteEnabled(false);
     }
 
     draw_free_space_property_ = new rviz_common::properties::BoolProperty("Draw free space", true, "Draw free space in between obstacles", this, SLOT(updateVisual()));
     free_space_color_property_ = new rviz_common::properties::ColorProperty("Free space color", QColor(255, 255, 255), "Color of free space", this, SLOT(updateVisual()));
     free_space_alpha_property_ = new rviz_common::properties::FloatProperty("Free space alpha", 0.7f, "Transparency of free space", this, SLOT(updateVisual()));
     free_space_alpha_property_->setMin(0); free_space_alpha_property_->setMax(1);
-    obstacle_height_property_ = new rviz_common::properties::FloatProperty("Height of obstacles", 0.3, "Height of obstacles", this, SLOT(updateVisual()));
+    free_space_dilation_ = new rviz_common::properties::FloatProperty("Free space dilation", 0.2f, "Free space dilation beyond obstacle range", this, SLOT(updateVisual()));
+    free_space_dilation_->setMin(0);
+    obstacle_height_property_ = new rviz_common::properties::FloatProperty("Height of obstacles", 0.0f, "Height of obstacles", this, SLOT(updateVisual()));
     obstacle_color_property_ = new rviz_common::properties::ColorProperty("Obstacle color", QColor(0, 0, 0), "Color of obstacles", this, SLOT(updateVisual()));
     obstacle_alpha_property_ = new rviz_common::properties::FloatProperty("Obstacle alpha", 1.0f, "Transparency of obstacles", this, SLOT(updateVisual()));
     obstacle_alpha_property_->setMin(0); obstacle_alpha_property_->setMax(1);
@@ -101,8 +103,16 @@ void PolygonalMapDisplay::updateVisual()
         obs_col.a = obstacle_alpha_property_->getFloat();
         float height = obstacle_height_property_->getFloat();
 
-        mo->estimateVertexCount(2 * num_points);
-        mo->estimateIndexCount(2 * indices.size() + 6 * num_points);
+        if (height == 0) // draw 2D polygons
+        {
+            mo->estimateVertexCount(num_points);
+            mo->estimateIndexCount(2 * indices.size());
+        }
+        else
+        {
+            mo->estimateVertexCount(2 * num_points);
+            mo->estimateIndexCount(2 * indices.size() + 6 * num_points);
+        }
         mo->begin(obstacle_material_, Ogre::RenderOperation::OT_TRIANGLE_LIST);
         bool shape_valid = true;
         for (const auto &point : obs.points)
@@ -119,37 +129,54 @@ void PolygonalMapDisplay::updateVisual()
         }
         if (!shape_valid)
         {
+            mo->end();
             delete mo;
             continue;
         }
-        for (const auto &point : obs.points)
+        if (height == 0)
         {
-            mo->position(point.x, point.y, 0); // add vertices on floor
-            mo->colour(obs_col);
+            for (size_t i=0; i < indices.size() - 2; i+=3)
+            {
+                uint32_t i0 = indices[i];
+                uint32_t i1 = indices[i+1];
+                uint32_t i2 = indices[i+2];
+                mo->triangle(i0, i1, i2);  // top triangles
+                mo->triangle(i2, i1, i0);  // bottom triangles
+            }
         }
-
-        for (size_t i=0; i < indices.size() - 2; i+=3)
+        else
         {
-            uint32_t i0 = indices[i];
-            uint32_t i1 = indices[i+1];
-            uint32_t i2 = indices[i+2];
-            mo->triangle(i0, i1, i2);  // top triangles
-            mo->triangle(i2 + num_points, i1 + num_points, i0 + num_points); // bottom triangles
-            
+            for (const auto &point : obs.points)
+            {
+                mo->position(point.x, point.y, 0); // add vertices on floor
+                mo->colour(obs_col);
+            }
+            for (size_t i=0; i < indices.size() - 2; i+=3)
+            {
+                uint32_t i0 = indices[i];
+                uint32_t i1 = indices[i+1];
+                uint32_t i2 = indices[i+2];
+                mo->triangle(i0, i1, i2);  // top triangles
+                mo->triangle(i2 + num_points, i1 + num_points, i0 + num_points); // bottom triangles
+                
+            }
+            for (uint32_t i=0; i < num_points - 1; i++)
+            {
+                uint32_t j = i + num_points;
+                mo->quad(j, j+1, i+1, i); // sides
+            }
+            uint32_t li = num_points - 1;
+            uint32_t lj = li + num_points;
+            mo->quad(lj, num_points, 0, li); // last side
         }
-        for (uint32_t i=0; i < num_points - 1; i++)
-        {
-            uint32_t j = i + num_points;
-            mo->quad(j, j+1, i+1, i); // sides
-        }
-        uint32_t li = num_points - 1;
-        uint32_t lj = li + num_points;
-        mo->quad(lj, num_points, 0, li); // last side
         mo->end();
         scene_node_->attachObject(mo);
     }
     if (draw_free_space_property_->getBool())
     {
+        float dilation = free_space_dilation_->getFloat();
+        min.x -= dilation; min.y -= dilation;
+        max.x += dilation; max.y += dilation;
         Ogre::ManualObject *mo = scene_manager_->createManualObject();
         mo->estimateVertexCount(4);
         mo->estimateIndexCount(6);
@@ -162,6 +189,7 @@ void PolygonalMapDisplay::updateVisual()
         mo->position(min.x, max.y, 0); mo->colour(free_col);
         mo->quad(0, 1, 2, 3);
         mo->quad(3, 2, 1, 0);
+        mo->setRenderQueueGroupAndPriority(0, 0);
         mo->end();
         scene_node_->attachObject(mo);
     }

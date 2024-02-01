@@ -34,7 +34,9 @@ LineMapDisplay::LineMapDisplay() : rviz_common::MessageFilterDisplay<polygonal_m
     free_space_color_property_ = new rviz_common::properties::ColorProperty("Free space color", QColor(255, 255, 255), "Color of free space", this, SLOT(updateVisual()));
     free_space_alpha_property_ = new rviz_common::properties::FloatProperty("Free space alpha", 0.7f, "Transparency of free space", this, SLOT(updateVisual()));
     free_space_alpha_property_->setMin(0); free_space_alpha_property_->setMax(1);
-    line_height_property_ = new rviz_common::properties::FloatProperty("Line height", 0.3, "Height of lines", this, SLOT(updateVisual()));
+    free_space_dilation_ = new rviz_common::properties::FloatProperty("Free space dilation", 0.2f, "Free space dilation beyond line range", this, SLOT(updateVisual()));
+    free_space_dilation_->setMin(0);
+    line_height_property_ = new rviz_common::properties::FloatProperty("Line height", 0.0f, "Height of lines", this, SLOT(updateVisual()));
     line_color_property_ = new rviz_common::properties::ColorProperty("Line color", QColor(0, 0, 0), "Color of lines", this, SLOT(updateVisual()));
     line_alpha_property_ = new rviz_common::properties::FloatProperty("Line alpha", 1.0f, "Transparency of lines", this, SLOT(updateVisual()));
     line_alpha_property_->setMin(0); line_alpha_property_->setMax(1);
@@ -113,6 +115,9 @@ void LineMapDisplay::updateVisual()
     }
     if (draw_free_space_property_->getBool())
     {
+        float dilation = free_space_dilation_->getFloat();
+        min.x -= dilation; min.y -= dilation;
+        max.x += dilation; max.y += dilation;
         Ogre::ManualObject *mo = scene_manager_->createManualObject();
         mo->estimateVertexCount(4);
         mo->estimateIndexCount(12);
