@@ -84,7 +84,6 @@ void LineMapDisplay::updateVisual()
         if (height == 0)
         {
             mo->estimateVertexCount(2);
-            mo->estimateIndexCount(2);
             mo->begin(line_material_, Ogre::RenderOperation::OT_LINE_LIST);
             mo->position(line.start.x, line.start.y, 0); mo->colour(line_col);
             mo->position(line.end.x, line.end.y, 0); mo->colour(line_col);
@@ -104,7 +103,7 @@ void LineMapDisplay::updateVisual()
             mo->quad(0, 1, 2, 3);
             mo->quad(3, 2, 1, 0);
             mo->end();
-        }        
+        }
         
         min.x = std::min(min.x, line.start.x); min.y = std::min(min.y, line.start.y);
         max.x = std::max(max.x, line.start.x); max.y = std::max(max.y, line.start.y);

@@ -93,16 +93,61 @@ void PolygonalMapDisplay::updateVisual()
 
     for (const auto &obs : current_map_.obstacles)
     {
+        if (obs.points.size() < 2) // single or no point
+            continue;
+
+        Ogre::ColourValue obs_col = obstacle_color_property_->getOgreColor();
+        obs_col.a = obstacle_alpha_property_->getFloat();
+        float height = obstacle_height_property_->getFloat();
+
+        if (obs.points.size() == 2) // is a line
+        {
+            if (!std::isfinite(obs.points[0].x) || !std::isfinite(obs.points[0].y) || !std::isfinite(obs.points[1].x) || !std::isfinite(obs.points[1].y))
+            {
+                continue; // invalid line
+            }
+            Ogre::ManualObject *mo = scene_manager_->createManualObject();
+            if (height == 0)
+            {
+                mo->estimateVertexCount(2);
+                mo->begin(obstacle_material_, Ogre::RenderOperation::OT_LINE_LIST);
+                mo->position(obs.points[0].x, obs.points[0].y, 0); mo->colour(obs_col);
+                mo->position(obs.points[1].x, obs.points[1].y, 0); mo->colour(obs_col);
+                mo->end();
+                
+            }
+            else
+            {
+                mo->estimateVertexCount(4);
+                mo->estimateIndexCount(12);
+                mo->begin(obstacle_material_, Ogre::RenderOperation::OT_TRIANGLE_LIST);
+
+                mo->position(obs.points[0].x, obs.points[0].y, 0); mo->colour(obs_col);
+                mo->position(obs.points[1].x, obs.points[1].y, 0); mo->colour(obs_col);
+                mo->position(obs.points[1].x, obs.points[1].y, height); mo->colour(obs_col);
+                mo->position(obs.points[0].x, obs.points[0].y, height); mo->colour(obs_col);
+
+                mo->quad(0, 1, 2, 3);
+                mo->quad(3, 2, 1, 0);
+                mo->end();
+            }
+            
+            min.x = std::min(min.x, obs.points[0].x); min.y = std::min(min.y, obs.points[0].y);
+            max.x = std::max(max.x, obs.points[0].x); max.y = std::max(max.y, obs.points[0].y);
+            min.x = std::min(min.x, obs.points[1].x); min.y = std::min(min.y, obs.points[1].y);
+            max.x = std::max(max.x, obs.points[1].x); max.y = std::max(max.y, obs.points[1].y);
+
+            scene_node_->attachObject(mo);
+            continue;
+        }
+
+        // draw actual polygon, use earcut to triangulate
         std::vector<std::vector<geometry_msgs::msg::Point32>> pg;
         pg.push_back(obs.points);
         std::vector<uint32_t> indices = mapbox::earcut(pg);
         uint32_t num_points = static_cast<uint32_t>(obs.points.size());
 
         Ogre::ManualObject *mo = scene_manager_->createManualObject();
-        Ogre::ColourValue obs_col = obstacle_color_property_->getOgreColor();
-        obs_col.a = obstacle_alpha_property_->getFloat();
-        float height = obstacle_height_property_->getFloat();
-
         if (height == 0) // draw 2D polygons
         {
             mo->estimateVertexCount(num_points);
