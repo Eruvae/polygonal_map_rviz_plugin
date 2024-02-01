@@ -23,7 +23,7 @@ class LineMapPublisher(Node):
             try:
                 line_map = yaml.full_load(file)
                 if not isinstance(line_map, list):
-                    raise yaml.YAMLError("Line map must be a list of lines")
+                    return msg
                 for line in line_map:
                     line_msg = LineSegment()
                     line_msg.start.x = float(line[0][0])

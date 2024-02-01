@@ -23,7 +23,7 @@ class PolygonalMapPublisher(Node):
             try:
                 polygonal_map = yaml.full_load(file)
                 if not isinstance(polygonal_map, list):
-                    raise yaml.YAMLError("Polygonal map must be a list of obstacles")
+                    return msg
                 for obs in polygonal_map:
                     obs_msg = Polygon()
                     for point in obs:

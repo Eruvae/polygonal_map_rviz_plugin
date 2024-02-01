@@ -69,6 +69,11 @@ void LineMapDisplay::updateVisual()
     min.x = min.y = std::numeric_limits<double>::max();
     max.x = max.y = std::numeric_limits<double>::lowest();
 
+    if (current_map_.lines.empty())
+    {
+        min.x = min.y = max.x = max.y = 0;
+    }
+
     Ogre::ColourValue line_col = line_color_property_->getOgreColor();
     line_col.a = line_alpha_property_->getFloat();
     float height = line_height_property_->getFloat();

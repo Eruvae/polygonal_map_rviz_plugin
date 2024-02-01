@@ -91,6 +91,11 @@ void PolygonalMapDisplay::updateVisual()
     min.x = min.y = std::numeric_limits<float>::max();
     max.x = max.y = std::numeric_limits<float>::lowest();
 
+    if (current_map_.obstacles.empty())
+    {
+        min.x = min.y = max.x = max.y = 0;
+    }
+
     for (const auto &obs : current_map_.obstacles)
     {
         if (obs.points.size() < 2) // single or no point
