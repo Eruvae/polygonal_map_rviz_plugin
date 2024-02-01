@@ -12,16 +12,34 @@ namespace polygonal_map_rviz_plugin
 
 LineMapDisplay::LineMapDisplay() : rviz_common::MessageFilterDisplay<polygonal_map_msgs::msg::LineMap>(), loaded_(false)
 {
-    draw_free_space_property_ = new rviz_common::properties::BoolProperty("Draw free space", true, "Draw free space in between obstacles", this);
-    free_space_color_property_ = new rviz_common::properties::ColorProperty("Free space color", QColor(255, 255, 255), "Color of free space", this);
-    line_height_property_ = new rviz_common::properties::FloatProperty("Line height", 0.3, "Height of lines", this);
-    line_color_property_ = new rviz_common::properties::ColorProperty("Line color", QColor(0, 0, 0), "Color of lines", this);
+    if (!free_space_material_)
+    {
+        free_space_material_ = Ogre::MaterialManager::getSingleton().create("line_map_free_space_material", "rviz_rendering");
+        free_space_material_->setReceiveShadows(false);
+        free_space_material_->getTechnique(0)->setLightingEnabled(false);
+        free_space_material_->setSceneBlending(Ogre::SBT_TRANSPARENT_ALPHA);
+        free_space_material_->setDepthWriteEnabled(false);
+    }
+
+    if (!line_material_)
+    {
+        line_material_ = Ogre::MaterialManager::getSingleton().create("line_map_line_material", "rviz_rendering");
+        line_material_->setReceiveShadows(false);
+        line_material_->getTechnique(0)->setLightingEnabled(false);
+        line_material_->setSceneBlending(Ogre::SBT_TRANSPARENT_ALPHA);
+        line_material_->setDepthWriteEnabled(false);
+    }
+
+    draw_free_space_property_ = new rviz_common::properties::BoolProperty("Draw free space", true, "Draw free space in between obstacles", this, SLOT(updateVisual()));
+    free_space_color_property_ = new rviz_common::properties::ColorProperty("Free space color", QColor(255, 255, 255), "Color of free space", this, SLOT(updateVisual()));
+    free_space_alpha_property_ = new rviz_common::properties::FloatProperty("Free space alpha", 0.7f, "Transparency of free space", this, SLOT(updateVisual()));
+    free_space_alpha_property_->setMin(0); free_space_alpha_property_->setMax(1);
+    line_height_property_ = new rviz_common::properties::FloatProperty("Line height", 0.3, "Height of lines", this, SLOT(updateVisual()));
+    line_color_property_ = new rviz_common::properties::ColorProperty("Line color", QColor(0, 0, 0), "Color of lines", this, SLOT(updateVisual()));
+    line_alpha_property_ = new rviz_common::properties::FloatProperty("Line alpha", 1.0f, "Transparency of lines", this, SLOT(updateVisual()));
+    line_alpha_property_->setMin(0); line_alpha_property_->setMax(1);
 
     connect(this, SIGNAL(mapReceived()), this, SLOT(updateVisual()));
-    connect(draw_free_space_property_, SIGNAL(changed()), this, SLOT(updateVisual()));
-    connect(free_space_color_property_, SIGNAL(changed()), this, SLOT(updateVisual()));
-    connect(line_height_property_, SIGNAL(changed()), this, SLOT(updateVisual()));
-    connect(line_color_property_, SIGNAL(changed()), this, SLOT(updateVisual()));
 }
 
 void LineMapDisplay::reset()
@@ -49,6 +67,10 @@ void LineMapDisplay::updateVisual()
     min.x = min.y = std::numeric_limits<double>::max();
     max.x = max.y = std::numeric_limits<double>::lowest();
 
+    Ogre::ColourValue line_col = line_color_property_->getOgreColor();
+    line_col.a = line_alpha_property_->getFloat();
+    float height = line_height_property_->getFloat();
+
     for (const auto &line : current_map_.lines)
     {
         if (!std::isfinite(line.start.x) || !std::isfinite(line.start.y) || !std::isfinite(line.end.x) || !std::isfinite(line.end.y))
@@ -57,22 +79,30 @@ void LineMapDisplay::updateVisual()
         }
 
         Ogre::ManualObject *mo = scene_manager_->createManualObject();
-        Ogre::ColourValue line_col = line_color_property_->getOgreColor();
-        float height = line_height_property_->getFloat();
+        if (height == 0)
+        {
+            mo->estimateVertexCount(2);
+            mo->estimateIndexCount(2);
+            mo->begin(line_material_, Ogre::RenderOperation::OT_LINE_LIST);
+            mo->position(line.start.x, line.start.y, 0); mo->colour(line_col);
+            mo->position(line.end.x, line.end.y, 0); mo->colour(line_col);
+            mo->end();
+        }
+        else
+        {
+            mo->estimateVertexCount(4);
+            mo->estimateIndexCount(12);
+            mo->begin(line_material_, Ogre::RenderOperation::OT_TRIANGLE_LIST);
 
-        mo->estimateVertexCount(4);
-        mo->estimateIndexCount(12);
-        mo->begin("BaseWhiteNoLighting", Ogre::RenderOperation::OT_TRIANGLE_LIST);
-        bool shape_valid = true;
+            mo->position(line.start.x, line.start.y, 0); mo->colour(line_col);
+            mo->position(line.end.x, line.end.y, 0); mo->colour(line_col);
+            mo->position(line.end.x, line.end.y, height); mo->colour(line_col);
+            mo->position(line.start.x, line.start.y, height); mo->colour(line_col);
 
-        mo->position(line.start.x, line.start.y, 0); mo->colour(line_col);
-        mo->position(line.end.x, line.end.y, 0); mo->colour(line_col);
-        mo->position(line.end.x, line.end.y, height); mo->colour(line_col);
-        mo->position(line.start.x, line.start.y, height); mo->colour(line_col);
-
-        mo->quad(0, 1, 2, 3);
-        mo->quad(3, 2, 1, 0);
-        mo->end();
+            mo->quad(0, 1, 2, 3);
+            mo->quad(3, 2, 1, 0);
+            mo->end();
+        }        
         
         min.x = std::min(min.x, line.start.x); min.y = std::min(min.y, line.start.y);
         max.x = std::max(max.x, line.start.x); max.y = std::max(max.y, line.start.y);
@@ -85,14 +115,17 @@ void LineMapDisplay::updateVisual()
     {
         Ogre::ManualObject *mo = scene_manager_->createManualObject();
         mo->estimateVertexCount(4);
-        mo->estimateIndexCount(6);
-        mo->begin("BaseWhiteNoLighting", Ogre::RenderOperation::OT_TRIANGLE_LIST);
+        mo->estimateIndexCount(12);
+        mo->begin(free_space_material_, Ogre::RenderOperation::OT_TRIANGLE_LIST);
         Ogre::ColourValue free_col = free_space_color_property_->getOgreColor();
+        free_col.a = free_space_alpha_property_->getFloat();
         mo->position(min.x, min.y, 0); mo->colour(free_col);
         mo->position(max.x, min.y, 0); mo->colour(free_col);
         mo->position(max.x, max.y, 0); mo->colour(free_col);
         mo->position(min.x, max.y, 0); mo->colour(free_col);
         mo->quad(0, 1, 2, 3);
+        mo->quad(3, 2, 1, 0);
+        mo->setRenderQueueGroupAndPriority(0, 0);
         mo->end();
         scene_node_->attachObject(mo);
     }

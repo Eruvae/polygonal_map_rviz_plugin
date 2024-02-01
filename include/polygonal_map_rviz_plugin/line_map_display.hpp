@@ -30,12 +30,17 @@ protected:
 
   rviz_common::properties::BoolProperty *draw_free_space_property_;
   rviz_common::properties::ColorProperty *free_space_color_property_;
+  rviz_common::properties::FloatProperty *free_space_alpha_property_;
   rviz_common::properties::FloatProperty *line_height_property_;
   rviz_common::properties::ColorProperty *line_color_property_;
+  rviz_common::properties::FloatProperty *line_alpha_property_;
 
   polygonal_map_msgs::msg::LineMap current_map_;
   rclcpp::Subscription<polygonal_map_msgs::msg::LineMap>::SharedPtr map_sub_;
   bool loaded_;
+
+  inline static Ogre::MaterialPtr free_space_material_ = nullptr;
+  inline static Ogre::MaterialPtr line_material_ = nullptr;
 };
 
 } // namespace polygonal_map_rviz_plugin
