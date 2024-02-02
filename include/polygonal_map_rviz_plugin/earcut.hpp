@@ -1,6 +1,6 @@
 /*
 Earcut algorithm from: https://github.com/mapbox/earcut.hpp
-(Used version: https://github.com/mapbox/earcut.hpp/blob/6d18edf0ce046023a7cb55e69c4cd9ba90e2c716/include/mapbox/earcut.hpp)
+(Used version: https://github.com/mapbox/earcut.hpp/blob/a30c14b5676adabe4714ff4173dae8a5d568ab59/include/mapbox/earcut.hpp)
 
 ISC License
 
@@ -24,7 +24,10 @@ THIS SOFTWARE.
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
+#include <limits>
 #include <memory>
+#include <utility>
 #include <vector>
 
 namespace mapbox {
@@ -33,7 +36,7 @@ namespace util {
 
 template <std::size_t I, typename T> struct nth {
     inline static typename std::tuple_element<I, T>::type
-    get(const T& t) { return std::get<I>(t); }
+    get(const T& t) { return std::get<I>(t); };
 };
 
 }
@@ -84,7 +87,7 @@ private:
     Node* cureLocalIntersections(Node* start);
     void splitEarcut(Node* start);
     template <typename Polygon> Node* eliminateHoles(const Polygon& points, Node* outerNode);
-    void eliminateHole(Node* hole, Node* outerNode);
+    Node* eliminateHole(Node* hole, Node* outerNode);
     Node* findHoleBridge(Node* hole, Node* outerNode);
     bool sectorContainsSector(const Node* m, const Node* p);
     void indexCurve(Node* start);
@@ -195,9 +198,9 @@ void Earcut<N>::operator()(const Polygon& points) {
             p = p->next;
         } while (p != outerNode);
 
-        // minX, minY and size are later used to transform coords into integers for z-order calculation
+        // minX, minY and inv_size are later used to transform coords into integers for z-order calculation
         inv_size = std::max<double>(maxX - minX, maxY - minY);
-        inv_size = inv_size != .0 ? (1. / inv_size) : .0;
+        inv_size = inv_size != .0 ? (32767. / inv_size) : .0;
     }
 
     earcutLinked(outerNode);
@@ -281,11 +284,8 @@ void Earcut<N>::earcutLinked(Node* ear, int pass) {
     Node* prev;
     Node* next;
 
-    int iterations = 0;
-
     // iterate through ears, slicing them one by one
     while (ear->prev != ear->next) {
-        iterations++;
         prev = ear->prev;
         next = ear->next;
 
@@ -460,8 +460,7 @@ Earcut<N>::eliminateHoles(const Polygon& points, Node* outerNode) {
 
     // process holes from left to right
     for (size_t i = 0; i < queue.size(); i++) {
-        eliminateHole(queue[i], outerNode);
-        outerNode = filterPoints(outerNode, outerNode->next);
+        outerNode = eliminateHole(queue[i], outerNode);
     }
 
     return outerNode;
@@ -469,15 +468,20 @@ Earcut<N>::eliminateHoles(const Polygon& points, Node* outerNode) {
 
 // find a bridge between vertices that connects hole with an outer ring and and link it
 template <typename N>
-void Earcut<N>::eliminateHole(Node* hole, Node* outerNode) {
-    outerNode = findHoleBridge(hole, outerNode);
-    if (outerNode) {
-        Node* b = splitPolygon(outerNode, hole);
-
-        // filter out colinear points around cuts
-        filterPoints(outerNode, outerNode->next);
-        filterPoints(b, b->next);
+typename Earcut<N>::Node*
+Earcut<N>::eliminateHole(Node* hole, Node* outerNode) {
+    Node* bridge = findHoleBridge(hole, outerNode);
+    if (!bridge) {
+        return outerNode;
     }
+
+    Node* bridgeReverse = splitPolygon(bridge, hole);
+
+    // filter collinear points around the cuts
+    filterPoints(bridgeReverse, bridgeReverse->next);
+
+    // Check if input node was removed by the filtering
+    return filterPoints(bridge, bridge->next);
 }
 
 // David Eberly's algorithm for finding a bridge between hole and outer polygon
@@ -497,19 +501,14 @@ Earcut<N>::findHoleBridge(Node* hole, Node* outerNode) {
           double x = p->x + (hy - p->y) * (p->next->x - p->x) / (p->next->y - p->y);
           if (x <= hx && x > qx) {
             qx = x;
-            if (x == hx) {
-                if (hy == p->y) return p;
-                if (hy == p->next->y) return p->next;
-            }
             m = p->x < p->next->x ? p : p->next;
+            if (x == hx) return m; // hole touches outer segment; pick leftmost endpoint
           }
         }
         p = p->next;
     } while (p != outerNode);
 
     if (!m) return 0;
-
-    if (hx == qx) return m; // hole touches outer segment; pick leftmost endpoint
 
     // look for points inside the triangle of hole Vertex, segment intersection and endpoint;
     // if there are no points found, we have a valid connection;
@@ -640,8 +639,8 @@ Earcut<N>::sortLinked(Node* list) {
 template <typename N>
 int32_t Earcut<N>::zOrder(const double x_, const double y_) {
     // coords are transformed into non-negative 15-bit integer range
-    int32_t x = static_cast<int32_t>(32767.0 * (x_ - minX) * inv_size);
-    int32_t y = static_cast<int32_t>(32767.0 * (y_ - minY) * inv_size);
+    int32_t x = static_cast<int32_t>((x_ - minX) * inv_size);
+    int32_t y = static_cast<int32_t>((y_ - minY) * inv_size);
 
     x = (x | (x << 8)) & 0x00FF00FF;
     x = (x | (x << 4)) & 0x0F0F0F0F;
@@ -674,9 +673,9 @@ Earcut<N>::getLeftmost(Node* start) {
 // check if a point lies within a convex triangle
 template <typename N>
 bool Earcut<N>::pointInTriangle(double ax, double ay, double bx, double by, double cx, double cy, double px, double py) const {
-    return (cx - px) * (ay - py) - (ax - px) * (cy - py) >= 0 &&
-           (ax - px) * (by - py) - (bx - px) * (ay - py) >= 0 &&
-           (bx - px) * (cy - py) - (cx - px) * (by - py) >= 0;
+    return (cx - px) * (ay - py) >= (ax - px) * (cy - py) &&
+           (ax - px) * (by - py) >= (bx - px) * (ay - py) &&
+           (bx - px) * (cy - py) >= (cx - px) * (by - py);
 }
 
 // check if a diagonal between two polygon nodes is valid (lies in polygon interior)
