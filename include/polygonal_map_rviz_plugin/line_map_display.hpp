@@ -25,6 +25,7 @@ protected Q_SLOTS:
   void updateVisual();
 
 protected:
+  void fixedFrameChanged() override;
   void processMessage(polygonal_map_msgs::msg::LineMap::ConstSharedPtr msg) override;
   void clearVisual();
 

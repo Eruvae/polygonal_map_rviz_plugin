@@ -3,19 +3,22 @@ import yaml
 
 import rclpy
 from rclpy.node import Node
-#from rclpy.qos import QoSProfile, QoSDurabilityPolicy
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy
 
 from polygonal_map_msgs.msg import PolygonalMap
 from geometry_msgs.msg import Polygon, Point32
 
 class PolygonalMapPublisher(Node):
 
-    def __init__(self, polygonal_map_file):
+    def __init__(self, polygonal_map_file, latched=False):
         super().__init__('polygonal_map_publisher')
-        #latched: QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
-        self.publisher_ = self.create_publisher(PolygonalMap, 'polygonal_map', 1)
         self.msg = self.read_polygonal_map(polygonal_map_file)
-        self.timer = self.create_timer(1.0, self.publish_map)
+        if (latched):
+            self.publisher_ = self.create_publisher(PolygonalMap, 'polygonal_map', QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL))
+            self.publish_map()
+        else:
+            self.publisher_ = self.create_publisher(PolygonalMap, 'polygonal_map', 1)
+            self.timer = self.create_timer(1.0, self.publish_map)
 
     def read_polygonal_map(self, polygonal_map_file):
         msg = PolygonalMap()
@@ -49,10 +52,15 @@ def main(args=None):
     rclpy.init(args=args)
 
     if (len(sys.argv) < 2):
-        print("Usage: publish_polygonal_map.py <polygonal_map.yaml>")
+        print("Usage: publish_polygonal_map.py <polygonal_map.yaml> [latched]")
         exit()
+    
+    latched = False
+    if (len(sys.argv) >= 3):
+        if (sys.argv[2] == "latched"):
+            latched = True
 
-    polygonal_map_publisher = PolygonalMapPublisher(sys.argv[1])
+    polygonal_map_publisher = PolygonalMapPublisher(sys.argv[1], latched)
 
     rclpy.spin(polygonal_map_publisher)
 

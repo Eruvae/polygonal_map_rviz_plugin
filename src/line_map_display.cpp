@@ -141,6 +141,23 @@ void LineMapDisplay::updateVisual()
     }
 }
 
+void LineMapDisplay::fixedFrameChanged()
+{
+    if (tf_filter_)
+    {
+        tf_filter_->setTargetFrame(fixed_frame_.toStdString());
+    }
+    rviz_common::MessageFilterDisplay<polygonal_map_msgs::msg::LineMap>::reset();
+    if (loaded_) // try to update frame if already received message
+    {
+        if (!updateFrame(current_map_.header.frame_id, rclcpp::Time(current_map_.header.stamp, RCL_ROS_TIME))) {
+            setMissingTransformToFixedFrame(current_map_.header.frame_id);
+            return;
+        }
+        setTransformOk();
+    }
+}
+
 void LineMapDisplay::processMessage(polygonal_map_msgs::msg::LineMap::ConstSharedPtr msg)
 {
     current_map_ = *msg;
