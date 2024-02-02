@@ -12,18 +12,19 @@ namespace polygonal_map_rviz_plugin
 
 LineMapDisplay::LineMapDisplay() : rviz_common::MessageFilterDisplay<polygonal_map_msgs::msg::LineMap>(), loaded_(false)
 {
-    if (!free_space_material_)
+    auto [resource, newly_created] = Ogre::MaterialManager::getSingleton().createOrRetrieve("line_map_free_space_material", "rviz_rendering");
+    free_space_material_ = Ogre::static_pointer_cast<Ogre::Material>(resource);
+    if (newly_created)
     {
-        free_space_material_ = Ogre::MaterialManager::getSingleton().create("line_map_free_space_material", "rviz_rendering");
         free_space_material_->setReceiveShadows(false);
         free_space_material_->getTechnique(0)->setLightingEnabled(false);
         free_space_material_->setSceneBlending(Ogre::SBT_TRANSPARENT_ALPHA);
         free_space_material_->setDepthWriteEnabled(false);
     }
-
-    if (!line_material_)
+    std::tie(resource, newly_created) = Ogre::MaterialManager::getSingleton().createOrRetrieve("line_map_line_material", "rviz_rendering");
+    line_material_ = Ogre::static_pointer_cast<Ogre::Material>(resource);
+    if (newly_created)
     {
-        line_material_ = Ogre::MaterialManager::getSingleton().create("line_map_line_material", "rviz_rendering");
         line_material_->setReceiveShadows(false);
         line_material_->getTechnique(0)->setLightingEnabled(false);
         line_material_->setSceneBlending(Ogre::SBT_TRANSPARENT_ALPHA);

@@ -40,8 +40,8 @@ protected:
   rclcpp::Subscription<polygonal_map_msgs::msg::PolygonalMap>::SharedPtr map_sub_;
   bool loaded_;
 
-  inline static Ogre::MaterialPtr free_space_material_ = nullptr;
-  inline static Ogre::MaterialPtr obstacle_material_ = nullptr;
+  Ogre::MaterialPtr free_space_material_;
+  Ogre::MaterialPtr obstacle_material_;
 };
 
 } // namespace polygonal_map_rviz_plugin

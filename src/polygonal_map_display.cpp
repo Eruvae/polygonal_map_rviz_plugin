@@ -34,18 +34,19 @@ namespace polygonal_map_rviz_plugin
 
 PolygonalMapDisplay::PolygonalMapDisplay() : rviz_common::MessageFilterDisplay<polygonal_map_msgs::msg::PolygonalMap>(), loaded_(false)
 {
-    if (!free_space_material_)
+    auto [resource, newly_created] = Ogre::MaterialManager::getSingleton().createOrRetrieve("polygonal_map_free_space_material", "rviz_rendering");
+    free_space_material_ = Ogre::static_pointer_cast<Ogre::Material>(resource);
+    if (newly_created)
     {
-        free_space_material_ = Ogre::MaterialManager::getSingleton().create("polygonal_map_free_space_material", "rviz_rendering");
         free_space_material_->setReceiveShadows(false);
         free_space_material_->getTechnique(0)->setLightingEnabled(false);
         free_space_material_->setSceneBlending(Ogre::SBT_TRANSPARENT_ALPHA);
         free_space_material_->setDepthWriteEnabled(false);
     }
-
-    if (!obstacle_material_)
+    std::tie(resource, newly_created) = Ogre::MaterialManager::getSingleton().createOrRetrieve("polygonal_map_obstacle_material", "rviz_rendering");
+    obstacle_material_ = Ogre::static_pointer_cast<Ogre::Material>(resource);
+    if (newly_created)
     {
-        obstacle_material_ = Ogre::MaterialManager::getSingleton().create("polygonal_map_obstacle_material", "rviz_rendering");
         obstacle_material_->setReceiveShadows(false);
         obstacle_material_->getTechnique(0)->setLightingEnabled(false);
         obstacle_material_->setSceneBlending(Ogre::SBT_TRANSPARENT_ALPHA);
